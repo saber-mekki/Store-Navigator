@@ -1,0 +1,7 @@
+{
+  "name": "Store Navigator Admin Dashboard",
+  "description": "An administrative dashboard for a large retail store's indoor navigation system. It allows managers to handle products, locations, and view analytics to support the customer-facing mobile application.",
+  "requestFramePermissions": [
+    "camera"
+  ]
+}
