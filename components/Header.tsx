@@ -26,6 +26,7 @@ const Header: React.FC<HeaderProps> = ({
     { view: 'locations', label: t.locations },
     { view: 'analytics', label: t.analytics },
     { view: 'search', label: t.search },
+    { view: 'layout', label: t.storeLayout },
   ];
 
   return (

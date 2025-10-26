@@ -136,13 +136,20 @@ export const searchProducts = async (
   }
 };
 
+type DirectionsLocation = {
+    floor: number;
+    aisle: string;
+    shelf: number;
+    bin: number;
+}
+
 export const generateDirections = async (
-  location: Omit<Location, 'id'>,
+  location: DirectionsLocation,
   language: Language
 ): Promise<string> => {
   if (!API_KEY) {
     // Mock response for development
-    return `1. Proceed to Aisle ${location.aisle}.\n2. Find Shelf ${location.shelf}.\n3. Your item is located in Bin ${location.bin}.`;
+    return `1. Proceed to ${location.aisle}.\n2. Find Shelf ${location.shelf}.\n3. Your item is located in Bin ${location.bin}.`;
   }
   const langName = languageMap[language];
 

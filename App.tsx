@@ -4,8 +4,9 @@ import ProductManagement from './components/ProductManagement';
 import LocationManagement from './components/LocationManagement';
 import AnalyticsDashboard from './components/AnalyticsDashboard';
 import CustomerSearchView from './components/CustomerSearchView';
-import type { View, Language, Product, Location, AnalyticsData } from './types';
-import { INITIAL_PRODUCTS, INITIAL_LOCATIONS, INITIAL_ANALYTICS, TRANSLATIONS } from './constants';
+import StoreLayoutManagement from './components/StoreLayoutManagement';
+import type { View, Language, Product, Location, AnalyticsData, StoreLayout } from './types';
+import { INITIAL_PRODUCTS, INITIAL_LOCATIONS, INITIAL_ANALYTICS, TRANSLATIONS, INITIAL_STORE_LAYOUT } from './constants';
 
 function App() {
   const [view, setView] = useState<View>('products');
@@ -16,6 +17,7 @@ function App() {
   const [locations, setLocations] = useState<Location[]>(INITIAL_LOCATIONS);
   const [analytics] = useState<AnalyticsData>(INITIAL_ANALYTICS);
   const [lowStockThreshold, setLowStockThreshold] = useState(10);
+  const [storeLayout, setStoreLayout] = useState<StoreLayout>(INITIAL_STORE_LAYOUT);
   
   const t = useMemo(() => TRANSLATIONS[language], [language]);
   
@@ -59,6 +61,10 @@ function App() {
     // Also unassign products from this location
     setProducts(prev => prev.map(p => p.locationId === locationId ? { ...p, locationId: 0 } : p));
   };
+
+  const handleUpdateLayout = (newLayout: StoreLayout) => {
+    setStoreLayout(newLayout);
+  };
   
   const renderView = () => {
     switch(view) {
@@ -66,6 +72,7 @@ function App() {
         return <ProductManagement 
           products={products} 
           locations={locations}
+          storeLayout={storeLayout}
           onAddProduct={handleAddProduct}
           onUpdateProduct={handleUpdateProduct}
           onDeleteProduct={handleDeleteProduct}
@@ -77,6 +84,7 @@ function App() {
       case 'locations':
         return <LocationManagement 
           locations={locations}
+          storeLayout={storeLayout}
           onAddLocation={handleAddLocation}
           onUpdateLocation={handleUpdateLocation}
           onDeleteLocation={handleDeleteLocation}
@@ -91,7 +99,13 @@ function App() {
           language={language} 
         />;
       case 'search':
-        return <CustomerSearchView products={products} locations={locations} t={t} language={language}/>;
+        return <CustomerSearchView products={products} locations={locations} t={t} language={language} storeLayout={storeLayout} />;
+      case 'layout':
+        return <StoreLayoutManagement 
+          storeLayout={storeLayout}
+          onUpdateLayout={handleUpdateLayout}
+          t={t}
+        />;
       default:
         return null;
     }

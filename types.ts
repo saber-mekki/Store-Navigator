@@ -1,4 +1,4 @@
-export type View = 'products' | 'locations' | 'analytics' | 'search';
+export type View = 'products' | 'locations' | 'analytics' | 'search' | 'layout';
 
 export type Language = 'ar' | 'fr' | 'de';
 
@@ -21,7 +21,7 @@ export interface Product {
 export interface Location {
   id: number;
   floor: number;
-  aisle: number;
+  aisleId: number;
   shelf: number;
   bin: number;
 }
@@ -35,3 +35,27 @@ export interface AnalyticsData {
 export type Translations = {
   [key: string]: string;
 };
+
+export interface Aisle {
+  id: number;
+  name: string;
+  x: number;
+  y: number;
+  width: number;
+  height: number;
+  orientation: 'vertical' | 'horizontal';
+  shelves: number;
+}
+
+export interface FloorLayout {
+  floorNumber: number;
+  aisles: Aisle[];
+  entranceX: number;
+  entranceY: number;
+}
+
+export interface StoreLayout {
+  floors: FloorLayout[];
+  storeWidth: number;
+  storeHeight: number;
+}

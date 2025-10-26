@@ -1,12 +1,13 @@
 import React, { useState, useMemo, useRef, useEffect } from 'react';
-import type { Product, Location, Translations, Language } from '../types';
+import type { Product, Location, Translations, Language, StoreLayout } from '../types';
 import { generateDescription, generateImage } from '../services/geminiService';
 import { EditIcon, DeleteIcon, PlusIcon, AIGenerateIcon, LoadingIcon, WarningIcon, QRIcon } from './common/Icon';
 
 interface ProductManagementProps {
   products: Product[];
   locations: Location[];
-  onAddProduct: (product: Product) => void;
+  storeLayout: StoreLayout;
+  onAddProduct: (product: Omit<Product, 'id'>) => void;
   onUpdateProduct: (product: Product) => void;
   onDeleteProduct: (productId: number) => void;
   t: Translations;
@@ -18,6 +19,7 @@ interface ProductManagementProps {
 const ProductManagement: React.FC<ProductManagementProps> = ({
   products,
   locations,
+  storeLayout,
   onAddProduct,
   onUpdateProduct,
   onDeleteProduct,
@@ -40,6 +42,8 @@ const ProductManagement: React.FC<ProductManagementProps> = ({
   const videoRef = useRef<HTMLVideoElement>(null);
   const streamRef = useRef<MediaStream | null>(null);
 
+  const allAisles = useMemo(() => storeLayout.floors.flatMap(f => f.aisles), [storeLayout]);
+
   const emptyProductForm: Partial<Product> = {
     name: { ar: '', fr: '', de: '' },
     category: { ar: '', fr: '', de: '' },
@@ -47,7 +51,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({
     barcode: '',
     price: 0,
     stock: 0,
-    locationId: locations[0]?.id || 1,
+    locationId: locations[0]?.id || 0,
     imageUrl: '',
   };
 
@@ -61,21 +65,21 @@ const ProductManagement: React.FC<ProductManagementProps> = ({
   
   const filteredProducts = useMemo(() => {
     return products.filter(product => {
-      if (categoryFilter !== 'all' && product.category[language] !== categoryFilter) {
-        return false;
-      }
-      if (stockFilter === 'inStock' && product.stock === 0) {
-        return false;
-      }
-      if (stockFilter === 'outOfStock' && product.stock > 0) {
-        return false;
-      }
-      if (locationFilter !== 'all' && product.locationId !== parseInt(locationFilter, 10)) {
-        return false;
+      if (categoryFilter !== 'all' && product.category[language] !== categoryFilter) return false;
+      
+      if (stockFilter === 'inStock' && product.stock === 0) return false;
+      
+      if (stockFilter === 'outOfStock' && product.stock > 0) return false;
+      
+      if (locationFilter !== 'all') {
+        const productLocation = locations.find(l => l.id === product.locationId);
+        if (!productLocation || productLocation.aisleId !== parseInt(locationFilter, 10)) {
+            return false;
+        }
       }
       return true;
     });
-  }, [products, categoryFilter, stockFilter, locationFilter, language]);
+  }, [products, categoryFilter, stockFilter, locationFilter, language, locations]);
 
   const handleClearFilters = () => {
     setCategoryFilter('all');
@@ -250,7 +254,7 @@ const ProductManagement: React.FC<ProductManagementProps> = ({
     if (editingProduct) {
       onUpdateProduct(productForm as Product);
     } else {
-      onAddProduct(productForm as Product);
+      onAddProduct(productForm as Omit<Product, 'id'>);
     }
     closeModal();
   };
@@ -258,7 +262,9 @@ const ProductManagement: React.FC<ProductManagementProps> = ({
   const getLocationString = (locationId: number) => {
     const loc = locations.find(l => l.id === locationId);
     if (!loc) return 'N/A';
-    return `${t.aisle} ${loc.aisle}, ${t.shelf} ${loc.shelf}`;
+    const aisle = allAisles.find(a => a.id === loc.aisleId);
+    if (!aisle) return 'N/A';
+    return `${t.floor} ${loc.floor}, ${aisle.name}, ${t.shelf} ${loc.shelf}`;
   };
 
   return (
@@ -317,8 +323,8 @@ const ProductManagement: React.FC<ProductManagementProps> = ({
             className="mt-1 block w-full pl-3 pr-10 py-2 text-base border-gray-300 focus:outline-none focus:ring-primary-500 focus:border-primary-500 sm:text-sm rounded-md dark:bg-gray-800 dark:border-gray-600"
           >
             <option value="all">{t.all}</option>
-            {locations.map(loc => (
-              <option key={loc.id} value={loc.id}>{`${t.floor} ${loc.floor}, ${t.aisle} ${loc.aisle}, ${t.shelf} ${loc.shelf}`}</option>
+            {allAisles.map(aisle => (
+              <option key={aisle.id} value={aisle.id}>{aisle.name}</option>
             ))}
           </select>
         </div>
@@ -435,8 +441,16 @@ const ProductManagement: React.FC<ProductManagementProps> = ({
                 </div>
                 <div>
                   <label className="block text-sm font-medium">{t.location}</label>
-                  <select name="locationId" value={productForm.locationId} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required>
-                    {locations.map(loc => <option key={loc.id} value={loc.id}>{`${t.floor} ${loc.floor}, ${t.aisle} ${loc.aisle}, ${t.shelf} ${loc.shelf}, ${t.bin} ${loc.bin}`}</option>)}
+                  <select name="locationId" value={productForm.locationId || ''} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required>
+                    <option value="">Select a location</option>
+                    {locations.map(loc => {
+                      const aisle = allAisles.find(a => a.id === loc.aisleId);
+                      return (
+                        <option key={loc.id} value={loc.id}>
+                          {`${t.floor} ${loc.floor}, ${aisle ? aisle.name : 'N/A'}, ${t.shelf} ${loc.shelf}, ${t.bin} ${loc.bin}`}
+                        </option>
+                      )
+                    })}
                   </select>
                 </div>
               </div>

@@ -1,9 +1,10 @@
-import React, { useState } from 'react';
-import type { Location, Translations } from '../types';
+import React, { useState, useMemo, useEffect } from 'react';
+import type { Location, Translations, StoreLayout } from '../types';
 import { EditIcon, DeleteIcon, PlusIcon } from './common/Icon';
 
 interface LocationManagementProps {
   locations: Location[];
+  storeLayout: StoreLayout;
   onAddLocation: (location: Omit<Location, 'id'>) => void;
   onUpdateLocation: (location: Location) => void;
   onDeleteLocation: (locationId: number) => void;
@@ -12,6 +13,7 @@ interface LocationManagementProps {
 
 const LocationManagement: React.FC<LocationManagementProps> = ({
   locations,
+  storeLayout,
   onAddLocation,
   onUpdateLocation,
   onDeleteLocation,
@@ -21,14 +23,34 @@ const LocationManagement: React.FC<LocationManagementProps> = ({
   const [editingLocation, setEditingLocation] = useState<Location | null>(null);
   const [isDeleting, setIsDeleting] = useState<Location | null>(null);
   
+  const initialFloor = storeLayout.floors[0]?.floorNumber || 1;
+  const initialAisles = storeLayout.floors[0]?.aisles || [];
+  
   const emptyLocationForm: Omit<Location, 'id'> = {
-    floor: 1,
-    aisle: 1,
+    floor: initialFloor,
+    aisleId: initialAisles[0]?.id || 0,
     shelf: 1,
     bin: 1,
   };
 
   const [locationForm, setLocationForm] = useState<Omit<Location, 'id'> | Location>(emptyLocationForm);
+  
+  const allAisles = useMemo(() => storeLayout.floors.flatMap(f => f.aisles), [storeLayout]);
+  const availableAislesForForm = useMemo(() => {
+    const floorData = storeLayout.floors.find(f => f.floorNumber === locationForm.floor);
+    return floorData ? floorData.aisles : [];
+  }, [storeLayout, locationForm.floor]);
+
+  useEffect(() => {
+    // When the available aisles for the selected floor change,
+    // check if the currently selected aisleId is still valid.
+    // If not, default to the first available aisle.
+    if (availableAislesForForm.length > 0 && !availableAislesForForm.some(a => a.id === locationForm.aisleId)) {
+        setLocationForm(prev => ({ ...prev, aisleId: availableAislesForForm[0].id }));
+    } else if (availableAislesForForm.length === 0) {
+        setLocationForm(prev => ({ ...prev, aisleId: 0 }));
+    }
+  }, [availableAislesForForm, locationForm.aisleId]);
 
   const handleAddLocationClick = () => {
     setEditingLocation(null);
@@ -59,7 +81,7 @@ const LocationManagement: React.FC<LocationManagementProps> = ({
     setLocationForm(emptyLocationForm);
   };
 
-  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement>) => {
+  const handleFormChange = (e: React.ChangeEvent<HTMLInputElement | HTMLSelectElement>) => {
     const { name, value } = e.target;
     setLocationForm(prev => ({ ...prev, [name]: parseInt(value, 10) || 1 }));
   };
@@ -73,6 +95,11 @@ const LocationManagement: React.FC<LocationManagementProps> = ({
     }
     closeModal();
   };
+  
+  const getAisleName = (aisleId: number) => {
+    const aisle = allAisles.find(a => a.id === aisleId);
+    return aisle ? aisle.name : `ID: ${aisleId}`;
+  }
 
   return (
     <div className="bg-white dark:bg-gray-800 rounded-lg shadow-lg p-6">
@@ -101,7 +128,7 @@ const LocationManagement: React.FC<LocationManagementProps> = ({
             {locations.map(loc => (
               <tr key={loc.id} className="bg-white border-b dark:bg-gray-800 dark:border-gray-700 hover:bg-gray-50 dark:hover:bg-gray-600">
                 <td className="px-6 py-4">{loc.floor}</td>
-                <td className="px-6 py-4">{loc.aisle}</td>
+                <td className="px-6 py-4">{getAisleName(loc.aisleId)}</td>
                 <td className="px-6 py-4">{loc.shelf}</td>
                 <td className="px-6 py-4">{loc.bin}</td>
                 <td className="px-6 py-4 text-right">
@@ -119,22 +146,30 @@ const LocationManagement: React.FC<LocationManagementProps> = ({
           <div className="bg-white dark:bg-gray-800 rounded-lg shadow-xl p-6 w-full max-w-md">
             <h3 className="text-xl font-bold mb-4">{editingLocation ? t.editLocation : t.addLocation}</h3>
             <form onSubmit={handleSubmit} className="space-y-4">
+               <div>
+                  <label className="block text-sm font-medium">{t.floor}</label>
+                  <select name="floor" value={locationForm.floor || 1} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required>
+                    {storeLayout.floors.map(f => (
+                        <option key={f.floorNumber} value={f.floorNumber}>{t.floor} {f.floorNumber}</option>
+                    ))}
+                  </select>
+                </div>
+                 <div>
+                  <label className="block text-sm font-medium">{t.aisle}</label>
+                  <select name="aisleId" value={locationForm.aisleId || ''} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required disabled={availableAislesForForm.length === 0}>
+                    {availableAislesForForm.length > 0 ? availableAislesForForm.map(aisle => (
+                        <option key={aisle.id} value={aisle.id}>{aisle.name}</option>
+                    )) : <option>No aisles on this floor</option>}
+                  </select>
+                </div>
               <div className="grid grid-cols-2 gap-4">
                 <div>
-                  <label className="block text-sm font-medium">{t.floor}</label>
-                  <input type="number" name="floor" value={(locationForm as Location).floor || 1} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required min="1" />
-                </div>
-                <div>
-                  <label className="block text-sm font-medium">{t.aisle}</label>
-                  <input type="number" name="aisle" value={(locationForm as Location).aisle || 1} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required min="1" />
-                </div>
-                <div>
                   <label className="block text-sm font-medium">{t.shelf}</label>
-                  <input type="number" name="shelf" value={(locationForm as Location).shelf || 1} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required min="1" />
+                  <input type="number" name="shelf" value={locationForm.shelf || 1} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required min="1" />
                 </div>
                 <div>
                   <label className="block text-sm font-medium">{t.bin}</label>
-                  <input type="number" name="bin" value={(locationForm as Location).bin || 1} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required min="1" />
+                  <input type="number" name="bin" value={locationForm.bin || 1} onChange={handleFormChange} className="mt-1 block w-full rounded-md border-gray-300 shadow-sm focus:border-primary-500 focus:ring-primary-500 dark:bg-gray-700 dark:border-gray-600" required min="1" />
                 </div>
               </div>
               <div className="flex justify-end space-x-2 pt-4">
